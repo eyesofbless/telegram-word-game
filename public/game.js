@@ -14,6 +14,7 @@ let gameOver = false;
 let startTime = Date.now();
 let timerInterval = null;
 let userData = null;
+let todayGameData = null;
 
 // Get user data from Telegram
 const user = tg.initDataUnsafe?.user || {
@@ -49,21 +50,12 @@ async function initGame() {
         const playedData = await playedResponse.json();
 
         if (playedData.played) {
-            showAlreadyPlayedScreen(playedData.game);
-            return;
+            todayGameData = playedData.game;
+            showTodayResultInMenu();
         }
 
-        // Get daily word
-        const wordResponse = await fetch(`${API_URL}/api/daily-word`);
-        const wordData = await wordResponse.json();
-        currentWord = wordData.word.toUpperCase();
-
-        console.log('Daily word:', currentWord); // For testing
-
-        // Create game board
-        createBoard();
-        startTimer();
-        setupKeyboard();
+        // Show menu
+        showScreen('menu-screen');
 
     } catch (error) {
         console.error('Init error:', error);
@@ -388,6 +380,70 @@ function showAlreadyPlayedScreen(game) {
     showScreen('already-played-screen');
 }
 
+function showTodayResultInMenu() {
+    const preview = document.getElementById('today-result-preview');
+    const statsDiv = document.getElementById('today-preview-stats');
+
+    if (todayGameData) {
+        const minutes = Math.floor(todayGameData.time_taken / 60).toString().padStart(2, '0');
+        const seconds = (todayGameData.time_taken % 60).toString().padStart(2, '0');
+
+        statsDiv.innerHTML = `
+            <div class="preview-stat-item">
+                <span>Результат:</span>
+                <span>${todayGameData.won ? '✅ Победа' : '❌ Поражение'}</span>
+            </div>
+            <div class="preview-stat-item">
+                <span>Попыток:</span>
+                <span>${todayGameData.attempts}</span>
+            </div>
+            <div class="preview-stat-item">
+                <span>Время:</span>
+                <span>${minutes}:${seconds}</span>
+            </div>
+            <div class="preview-stat-item">
+                <span>Очки:</span>
+                <span>+${todayGameData.score}</span>
+            </div>
+        `;
+        preview.style.display = 'block';
+
+        // Disable play button if already played
+        const playBtn = document.getElementById('play-btn');
+        playBtn.disabled = true;
+        playBtn.textContent = '✅ Сыграно сегодня';
+        playBtn.style.opacity = '0.6';
+        playBtn.style.cursor = 'not-allowed';
+    }
+}
+
+async function startGame() {
+    if (todayGameData) {
+        tg.showAlert('Вы уже играли сегодня! Возвращайтесь завтра за новым словом.');
+        return;
+    }
+
+    try {
+        // Get daily word
+        const wordResponse = await fetch(`${API_URL}/api/daily-word`);
+        const wordData = await wordResponse.json();
+        currentWord = wordData.word.toUpperCase();
+
+        console.log('Daily word:', currentWord); // For testing
+
+        // Create game board
+        createBoard();
+        startTimer();
+        setupKeyboard();
+
+        showScreen('game-screen');
+
+    } catch (error) {
+        console.error('Error starting game:', error);
+        tg.showAlert('Ошибка запуска игры. Попробуйте позже.');
+    }
+}
+
 function shareResult() {
     const attempts = currentRow + 1;
     const won = getCurrentGuess() === currentWord;
@@ -400,20 +456,21 @@ function shareResult() {
 }
 
 // Event listeners
+document.getElementById('play-btn').addEventListener('click', startGame);
+document.getElementById('menu-stats-btn').addEventListener('click', showStats);
+document.getElementById('menu-leaderboard-btn').addEventListener('click', showLeaderboard);
 document.getElementById('stats-btn').addEventListener('click', showStats);
 document.getElementById('leaderboard-btn').addEventListener('click', showLeaderboard);
 document.getElementById('share-btn').addEventListener('click', shareResult);
 document.getElementById('new-game-btn').addEventListener('click', () => {
-    tg.close();
+    showScreen('menu-screen');
 });
 document.getElementById('back-from-stats').addEventListener('click', () => {
-    showScreen('game-screen');
+    showScreen('menu-screen');
 });
 document.getElementById('back-from-leaderboard').addEventListener('click', () => {
-    showScreen('game-screen');
+    showScreen('menu-screen');
 });
-document.getElementById('view-stats-btn').addEventListener('click', showStats);
-document.getElementById('view-leaderboard-btn').addEventListener('click', showLeaderboard);
 
 // Initialize
 initGame();

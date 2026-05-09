@@ -17,7 +17,33 @@
             </div>
         </header>
 
-        <div id="game-screen" class="screen active">
+        <div id="menu-screen" class="screen active">
+            <div class="menu-content">
+                <div class="menu-logo">
+                    <div class="logo-animation">
+                        <span class="logo-letter">У</span>
+                        <span class="logo-letter">Г</span>
+                        <span class="logo-letter">А</span>
+                        <span class="logo-letter">Д</span>
+                        <span class="logo-letter">А</span>
+                        <span class="logo-letter">Й</span>
+                    </div>
+                </div>
+
+                <div id="today-result-preview" class="today-result-preview" style="display: none;">
+                    <h3>Сегодняшний результат</h3>
+                    <div id="today-preview-stats"></div>
+                </div>
+
+                <div class="menu-buttons">
+                    <button id="play-btn" class="btn btn-primary btn-large">🎮 Играть</button>
+                    <button id="menu-stats-btn" class="btn btn-secondary">📊 Статистика</button>
+                    <button id="menu-leaderboard-btn" class="btn btn-secondary">🏆 Лидеры</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-screen" class="screen">
             <div class="game-info">
                 <div class="attempts">Попыток: <span id="attempts">0</span>/6</div>
                 <div class="timer">⏱️ <span id="timer">00:00</span></div>
@@ -136,20 +162,6 @@
             </div>
         </div>
 
-        <div id="already-played-screen" class="screen">
-            <div class="already-played-content">
-                <h2>✅ Вы уже играли сегодня!</h2>
-                <p>Возвращайтесь завтра за новым словом</p>
-                <div class="today-result">
-                    <h3>Ваш результат:</h3>
-                    <div id="today-stats"></div>
-                </div>
-                <div class="actions">
-                    <button id="view-stats-btn" class="btn btn-primary">📊 Статистика</button>
-                    <button id="view-leaderboard-btn" class="btn btn-secondary">🏆 Лидеры</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="game.js"></script>
