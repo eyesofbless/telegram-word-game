@@ -75,32 +75,36 @@ function createBoard() {
     const board = document.getElementById('game-board');
     board.innerHTML = '';
 
+    // Start with 6 rows, will add more dynamically
     for (let i = 0; i < 6; i++) {
-        const row = document.createElement('div');
-        row.className = 'board-row';
-        row.id = `row-${i}`;
-
-        for (let j = 0; j < 5; j++) {
-            const tile = document.createElement('div');
-            tile.className = 'tile';
-            tile.id = `tile-${i}-${j}`;
-            row.appendChild(tile);
-        }
-
-        board.appendChild(row);
+        addNewRow(i);
     }
 }
 
-function setupKeyboard() {
-    const keys = document.querySelectorAll('.key');
-    keys.forEach(key => {
-        key.addEventListener('click', () => {
-            const letter = key.dataset.key;
-            handleKeyPress(letter);
-        });
-    });
+function addNewRow(rowIndex) {
+    const board = document.getElementById('game-board');
+    const row = document.createElement('div');
+    row.className = 'board-row';
+    row.id = `row-${rowIndex}`;
 
-    // Physical keyboard support
+    for (let j = 0; j < 5; j++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.id = `tile-${rowIndex}-${j}`;
+        row.appendChild(tile);
+    }
+
+    board.appendChild(row);
+}
+
+function setupKeyboard() {
+    // Hide virtual keyboard
+    const keyboard = document.querySelector('.keyboard');
+    if (keyboard) {
+        keyboard.style.display = 'none';
+    }
+
+    // Physical keyboard support only
     document.addEventListener('keydown', (e) => {
         if (gameOver) return;
 
@@ -164,17 +168,23 @@ async function submitGuess() {
         setTimeout(() => {
             showResult(true);
         }, 1500);
-    } else if (currentRow === 5) {
-        // Lose
-        gameOver = true;
-        stopTimer();
-        setTimeout(() => {
-            showResult(false);
-        }, 1500);
     } else {
-        // Next row
+        // Next row - infinite attempts
         currentRow++;
         currentTile = 0;
+
+        // Add new row if needed (every 6 rows)
+        if (currentRow % 6 === 0) {
+            for (let i = 0; i < 6; i++) {
+                addNewRow(currentRow + i);
+            }
+        }
+
+        // Scroll to current row
+        const currentRowElement = document.getElementById(`row-${currentRow}`);
+        if (currentRowElement) {
+            currentRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     }
 }
 
@@ -228,11 +238,8 @@ function checkGuess(guess) {
 }
 
 function updateKeyboard(letter, status) {
-    const key = document.querySelector(`.key[data-key="${letter}"]`);
-    if (key && !key.classList.contains('correct')) {
-        key.classList.remove('present', 'absent', 'correct');
-        key.classList.add(status);
-    }
+    // Virtual keyboard is hidden, so this function does nothing now
+    // Keeping it for compatibility
 }
 
 function startTimer() {
@@ -256,8 +263,14 @@ function calculateScore(won, attempts, timeTaken) {
 
     let score = 100;
 
-    // Bonus for fewer attempts
-    score += (6 - attempts) * 20;
+    // Bonus for fewer attempts (diminishing returns for more attempts)
+    if (attempts <= 6) {
+        score += (7 - attempts) * 20;
+    } else if (attempts <= 10) {
+        score += Math.max(0, (11 - attempts) * 10);
+    } else {
+        score += Math.max(0, 20 - attempts);
+    }
 
     // Bonus for speed (max 50 points)
     const timeBonus = Math.max(0, 50 - Math.floor(timeTaken / 10));
@@ -292,7 +305,7 @@ async function showResult(won) {
     // Update UI
     document.getElementById('result-title').textContent = won ? '🎉 Победа!' : '😔 Не угадали';
     document.getElementById('result-word').textContent = currentWord;
-    document.getElementById('result-attempts').textContent = `${attempts}/6`;
+    document.getElementById('result-attempts').textContent = `${attempts}`;
 
     const minutes = Math.floor(timeTaken / 60).toString().padStart(2, '0');
     const seconds = (timeTaken % 60).toString().padStart(2, '0');
