@@ -15,6 +15,7 @@ let startTime = Date.now();
 let timerInterval = null;
 let userData = null;
 let todayGameData = null;
+let keyboardInitialized = false;
 
 // Get user data from Telegram
 const user = tg.initDataUnsafe?.user || {
@@ -96,18 +97,26 @@ function setupKeyboard() {
         keyboard.style.display = 'none';
     }
 
-    // Physical keyboard support only
-    document.addEventListener('keydown', (e) => {
-        if (gameOver) return;
+    if (keyboardInitialized) {
+        return;
+    }
 
-        if (e.key === 'Enter') {
-            handleKeyPress('Enter');
-        } else if (e.key === 'Backspace') {
-            handleKeyPress('Backspace');
-        } else if (/^[а-яА-ЯёЁ]$/.test(e.key)) {
-            handleKeyPress(e.key.toUpperCase());
-        }
-    });
+    document.addEventListener('keydown', handlePhysicalKeyDown);
+    keyboardInitialized = true;
+}
+
+function handlePhysicalKeyDown(e) {
+    if (gameOver || e.repeat) return;
+
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        handleKeyPress('Enter');
+    } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleKeyPress('Backspace');
+    } else if (/^[а-яА-ЯёЁ]$/.test(e.key)) {
+        handleKeyPress(e.key.toUpperCase());
+    }
 }
 
 function handleKeyPress(key) {
