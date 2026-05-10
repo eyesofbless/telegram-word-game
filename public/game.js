@@ -13,8 +13,10 @@ let currentTile = 0;
 let gameOver = false;
 let startTime = Date.now();
 let timerInterval = null;
+let elapsedBeforePause = 0;
 let userData = null;
 let todayGameData = null;
+let displayedResultData = null;
 let keyboardInitialized = false;
 
 // Get user data from Telegram
@@ -106,7 +108,7 @@ function setupKeyboard() {
 }
 
 function handlePhysicalKeyDown(e) {
-    if (gameOver || e.repeat) return;
+    if (gameOver || e.repeat || !isGameScreenActive()) return;
 
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -117,6 +119,10 @@ function handlePhysicalKeyDown(e) {
     } else if (/^[а-яА-ЯёЁ]$/.test(e.key)) {
         handleKeyPress(e.key.toUpperCase());
     }
+}
+
+function isGameScreenActive() {
+    return document.getElementById('game-screen').classList.contains('active');
 }
 
 function handleKeyPress(key) {
@@ -165,7 +171,7 @@ async function submitGuess() {
     if (guess === currentWord) {
         // Win
         gameOver = true;
-        stopTimer();
+        pauseTimer();
         setTimeout(() => {
             showResult(true);
         }, 1500);
@@ -244,19 +250,43 @@ function updateKeyboard(letter, status) {
 }
 
 function startTimer() {
-    startTime = Date.now();
+    startTime = Date.now() - elapsedBeforePause;
+    updateTimerDisplay();
+
+    if (timerInterval) {
+        clearInterval(timerInterval);
+    }
+
     timerInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
-        const seconds = (elapsed % 60).toString().padStart(2, '0');
-        document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+        updateTimerDisplay();
     }, 1000);
 }
 
 function stopTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
+        timerInterval = null;
     }
+}
+
+function pauseTimer() {
+    if (!timerInterval) return;
+
+    elapsedBeforePause = Date.now() - startTime;
+    stopTimer();
+    updateTimerDisplay();
+}
+
+function getElapsedSeconds() {
+    const elapsedMs = timerInterval ? Date.now() - startTime : elapsedBeforePause;
+    return Math.floor(elapsedMs / 1000);
+}
+
+function updateTimerDisplay() {
+    const elapsed = getElapsedSeconds();
+    const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+    const seconds = (elapsed % 60).toString().padStart(2, '0');
+    document.getElementById('timer').textContent = `${minutes}:${seconds}`;
 }
 
 function calculateScore(won, attempts, timeTaken) {
@@ -281,7 +311,7 @@ function calculateScore(won, attempts, timeTaken) {
 }
 
 async function showResult(won) {
-    const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+    const timeTaken = getElapsedSeconds();
     const attempts = currentRow + 1;
     const score = calculateScore(won, attempts, timeTaken);
 
@@ -299,21 +329,25 @@ async function showResult(won) {
                 time_taken: timeTaken
             })
         });
+        todayGameData = {
+            word: currentWord,
+            attempts: attempts,
+            won: won ? 1 : 0,
+            score: score,
+            time_taken: timeTaken
+        };
+        showTodayResultInMenu();
     } catch (error) {
         console.error('Error saving game:', error);
     }
 
-    // Update UI
-    document.getElementById('result-title').textContent = won ? '🎉 Победа!' : '😔 Не угадали';
-    document.getElementById('result-word').textContent = currentWord;
-    document.getElementById('result-attempts').textContent = `${attempts}`;
-
-    const minutes = Math.floor(timeTaken / 60).toString().padStart(2, '0');
-    const seconds = (timeTaken % 60).toString().padStart(2, '0');
-    document.getElementById('result-time').textContent = `${minutes}:${seconds}`;
-    document.getElementById('result-score').textContent = won ? `+${score}` : '0';
-
-    showScreen('result-screen');
+    renderResult({
+        word: currentWord,
+        attempts,
+        won,
+        score,
+        time_taken: timeTaken
+    });
 }
 
 function showScreen(screenId) {
@@ -417,18 +451,20 @@ function showTodayResultInMenu() {
         `;
         preview.style.display = 'block';
 
-        // Disable play button if already played
-        const playBtn = document.getElementById('play-btn');
-        playBtn.disabled = true;
-        playBtn.textContent = '✅ Сыграно сегодня';
-        playBtn.style.opacity = '0.6';
-        playBtn.style.cursor = 'not-allowed';
+        updateMenuPlayButton();
     }
 }
 
 async function startGame() {
     if (todayGameData) {
-        tg.showAlert('Вы уже играли сегодня! Возвращайтесь завтра за новым словом.');
+        showStoredTodayResult();
+        return;
+    }
+
+    if (currentWord && !gameOver) {
+        startTimer();
+        setupKeyboard();
+        showScreen('game-screen');
         return;
     }
 
@@ -437,6 +473,10 @@ async function startGame() {
         const wordResponse = await fetch(`${API_URL}/api/daily-word`);
         const wordData = await wordResponse.json();
         currentWord = wordData.word.toUpperCase();
+        currentRow = 0;
+        currentTile = 0;
+        gameOver = false;
+        elapsedBeforePause = 0;
 
         console.log('Daily word:', currentWord); // For testing
 
@@ -453,9 +493,61 @@ async function startGame() {
     }
 }
 
+function updateMenuPlayButton() {
+    const playBtn = document.getElementById('play-btn');
+
+    playBtn.disabled = false;
+    playBtn.style.opacity = '1';
+    playBtn.style.cursor = 'pointer';
+
+    if (todayGameData) {
+        playBtn.textContent = '📋 Посмотреть результат';
+    } else if (currentWord && !gameOver) {
+        playBtn.textContent = '▶️ Продолжить';
+    } else {
+        playBtn.textContent = '🎮 Играть';
+    }
+}
+
+function returnToMenuFromGame() {
+    if (!gameOver && currentWord) {
+        pauseTimer();
+    }
+
+    updateMenuPlayButton();
+    showScreen('menu-screen');
+}
+
+function renderResult(game) {
+    displayedResultData = game;
+    const won = Boolean(game.won);
+    const timeTaken = Number(game.time_taken) || 0;
+    const score = Number(game.score) || 0;
+    const attempts = Number(game.attempts) || 0;
+
+    document.getElementById('result-title').textContent = won ? '🎉 Победа!' : '😔 Не угадали';
+    document.getElementById('result-word').textContent = game.word || currentWord;
+    document.getElementById('result-attempts').textContent = `${attempts}`;
+
+    const minutes = Math.floor(timeTaken / 60).toString().padStart(2, '0');
+    const seconds = (timeTaken % 60).toString().padStart(2, '0');
+    document.getElementById('result-time').textContent = `${minutes}:${seconds}`;
+    document.getElementById('result-score').textContent = won ? `+${score}` : '0';
+    document.getElementById('result-message').textContent = 'Приходи завтра!';
+
+    showScreen('result-screen');
+}
+
+function showStoredTodayResult() {
+    if (!todayGameData) return;
+
+    renderResult(todayGameData);
+}
+
 function shareResult() {
-    const attempts = currentRow + 1;
-    const won = getCurrentGuess() === currentWord;
+    const result = displayedResultData || todayGameData;
+    const attempts = result ? Number(result.attempts) : currentRow + 1;
+    const won = result ? Boolean(result.won) : getCurrentGuess() === currentWord;
 
     let shareText = `🎮 Угадай слово\n\n`;
     shareText += won ? `Угадал за ${attempts}/6 попыток!\n` : `Не угадал 😔\n`;
@@ -470,14 +562,18 @@ document.getElementById('menu-stats-btn').addEventListener('click', showStats);
 document.getElementById('menu-leaderboard-btn').addEventListener('click', showLeaderboard);
 document.getElementById('stats-btn').addEventListener('click', showStats);
 document.getElementById('leaderboard-btn').addEventListener('click', showLeaderboard);
+document.getElementById('back-to-menu-btn').addEventListener('click', returnToMenuFromGame);
 document.getElementById('share-btn').addEventListener('click', shareResult);
 document.getElementById('new-game-btn').addEventListener('click', () => {
     showScreen('menu-screen');
+    updateMenuPlayButton();
 });
 document.getElementById('back-from-stats').addEventListener('click', () => {
+    updateMenuPlayButton();
     showScreen('menu-screen');
 });
 document.getElementById('back-from-leaderboard').addEventListener('click', () => {
+    updateMenuPlayButton();
     showScreen('menu-screen');
 });
 
