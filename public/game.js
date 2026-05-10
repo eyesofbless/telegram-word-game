@@ -46,7 +46,6 @@ async function initGame() {
 
         // Update UI
         document.getElementById('username').textContent = user.first_name || user.username || 'Игрок';
-        document.getElementById('score').textContent = `⭐ ${userData?.total_score || 0}`;
 
         // Check if already played today
         const playedResponse = await fetch(`${API_URL}/api/today-played/${user.id}`);
@@ -366,7 +365,6 @@ async function showStats() {
         document.getElementById('total-wins').textContent = data.games_won;
         const winRate = data.games_played > 0 ? ((data.games_won / data.games_played) * 100).toFixed(1) : 0;
         document.getElementById('win-rate').textContent = `${winRate}%`;
-        document.getElementById('total-score-stat').textContent = data.total_score;
     }
 
     showScreen('stats-screen');
@@ -425,32 +423,9 @@ function showAlreadyPlayedScreen(game) {
 
 function showTodayResultInMenu() {
     const preview = document.getElementById('today-result-preview');
-    const statsDiv = document.getElementById('today-preview-stats');
+    preview.style.display = 'none';
 
     if (todayGameData) {
-        const minutes = Math.floor(todayGameData.time_taken / 60).toString().padStart(2, '0');
-        const seconds = (todayGameData.time_taken % 60).toString().padStart(2, '0');
-
-        statsDiv.innerHTML = `
-            <div class="preview-stat-item">
-                <span>Результат:</span>
-                <span>${todayGameData.won ? '✅ Победа' : '❌ Поражение'}</span>
-            </div>
-            <div class="preview-stat-item">
-                <span>Попыток:</span>
-                <span>${todayGameData.attempts}</span>
-            </div>
-            <div class="preview-stat-item">
-                <span>Время:</span>
-                <span>${minutes}:${seconds}</span>
-            </div>
-            <div class="preview-stat-item">
-                <span>Очки:</span>
-                <span>+${todayGameData.score}</span>
-            </div>
-        `;
-        preview.style.display = 'block';
-
         updateMenuPlayButton();
     }
 }

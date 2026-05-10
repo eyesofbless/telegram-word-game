@@ -85,8 +85,7 @@ bot.onText(/\/stats/, async (msg) => {
       `📊 Ваша статистика:\n\n` +
       `🎮 Игр сыграно: ${user.games_played}\n` +
       `🏆 Побед: ${user.games_won}\n` +
-      `📈 Процент побед: ${winRate}%\n` +
-      `⭐ Общий счет: ${user.total_score}`
+      `📈 Процент побед: ${winRate}%`
     );
   });
 });
