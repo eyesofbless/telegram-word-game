@@ -14,9 +14,7 @@ let gameOver = false;
 let startTime = Date.now();
 let timerInterval = null;
 let elapsedBeforePause = 0;
-let userData = null;
 let todayGameData = null;
-let displayedResultData = null;
 let keyboardInitialized = false;
 
 // Get user data from Telegram
@@ -41,8 +39,7 @@ async function initGame() {
         });
 
         // Load user data
-        const userResponse = await fetch(`${API_URL}/api/user/${user.id}`);
-        userData = await userResponse.json();
+        await fetch(`${API_URL}/api/user/${user.id}`);
 
         // Update UI
         document.getElementById('username').textContent = user.first_name || user.username || 'Игрок';
@@ -433,29 +430,7 @@ async function showLeaderboard() {
     showScreen('leaderboard-screen');
 }
 
-function showAlreadyPlayedScreen(game) {
-    const statsDiv = document.getElementById('today-stats');
-    statsDiv.innerHTML = `
-        <div class="today-stat-item">
-            <span>Результат:</span>
-            <span>${game.won ? '✅ Победа' : '❌ Поражение'}</span>
-        </div>
-        <div class="today-stat-item">
-            <span>Попыток:</span>
-            <span>${game.attempts}/6</span>
-        </div>
-        <div class="today-stat-item">
-            <span>Очки:</span>
-            <span>+${game.score}</span>
-        </div>
-    `;
-    showScreen('already-played-screen');
-}
-
 function showTodayResultInMenu() {
-    const preview = document.getElementById('today-result-preview');
-    preview.style.display = 'none';
-
     if (todayGameData) {
         updateMenuPlayButton();
     }
@@ -484,8 +459,6 @@ async function startGame() {
         currentTile = 0;
         gameOver = false;
         elapsedBeforePause = 0;
-
-        console.log('Daily word:', currentWord); // For testing
 
         // Create game board
         createBoard();
@@ -528,7 +501,6 @@ function returnToMenuFromGame() {
 }
 
 function renderResult(game) {
-    displayedResultData = game;
     const won = Boolean(game.won);
     const timeTaken = Number(game.time_taken) || 0;
     const score = Number(game.score) || 0;
@@ -553,18 +525,6 @@ function showStoredTodayResult() {
     renderResult(todayGameData);
 }
 
-function shareResult() {
-    const result = displayedResultData || todayGameData;
-    const attempts = result ? Number(result.attempts) : currentRow + 1;
-    const won = result ? Boolean(result.won) : getCurrentGuess() === currentWord;
-
-    let shareText = `🎮 Угадай слово\n\n`;
-    shareText += won ? `Угадал за ${attempts}/6 попыток!\n` : `Не угадал 😔\n`;
-    shareText += `\nСыграй и ты!`;
-
-    tg.shareMessage(shareText);
-}
-
 // Event listeners
 document.getElementById('play-btn').addEventListener('click', startGame);
 document.getElementById('menu-stats-btn').addEventListener('click', showStats);
@@ -572,7 +532,6 @@ document.getElementById('menu-leaderboard-btn').addEventListener('click', showLe
 document.getElementById('stats-btn').addEventListener('click', showStats);
 document.getElementById('leaderboard-btn').addEventListener('click', showLeaderboard);
 document.getElementById('back-to-menu-btn').addEventListener('click', returnToMenuFromGame);
-document.getElementById('share-btn').addEventListener('click', shareResult);
 document.getElementById('new-game-btn').addEventListener('click', () => {
     showScreen('menu-screen');
     updateMenuPlayButton();
