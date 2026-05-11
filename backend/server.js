@@ -114,6 +114,31 @@ if (process.env.BOT_TOKEN && BOT_POLLING) {
       bot.sendMessage(chatId, message);
     });
   });
+
+  bot.onText(/\/rules/, (msg) => {
+    const chatId = msg.chat.id;
+
+    const rulesMessage =
+      `📘 Правила игры "Угадай слово"\n\n` +
+      `🎯 Цель:\n` +
+      `Угадать слово из 5 букв.\n\n` +
+      `⌨️ Как играть:\n` +
+      `1. Введите слово из 5 букв и отправьте.\n` +
+      `2. После каждой попытки вы увидите подсветку букв:\n` +
+      `   🟩 Зеленая — буква на правильном месте\n` +
+      `   🟨 Желтая — буква есть в слове, но в другом месте\n` +
+      `   ⬜ Серая — такой буквы в слове нет\n` +
+      `3. Попытки не ограничены.\n\n` +
+      `📅 Важно:\n` +
+      `Слово дня одно для всех, и результат засчитывается 1 раз в день.\n\n` +
+      `🏆 Очки (только за победу):\n` +
+      `• База: 100\n` +
+      `• Бонус за попытки: чем раньше угадали, тем больше\n` +
+      `• Бонус за скорость: до 50\n\n` +
+      `Удачи! 🍀`;
+
+    bot.sendMessage(chatId, rulesMessage);
+  });
 } else {
   console.log('Telegram bot polling disabled');
 }
@@ -123,8 +148,11 @@ app.post('/api/user/init', (req, res) => {
   const { telegram_id, username, first_name } = req.body;
 
   db.run(
-    `INSERT OR REPLACE INTO users (telegram_id, username, first_name)
-     VALUES (?, ?, ?)`,
+    `INSERT INTO users (telegram_id, username, first_name)
+     VALUES (?, ?, ?)
+     ON CONFLICT(telegram_id) DO UPDATE SET
+       username = excluded.username,
+       first_name = excluded.first_name`,
     [telegram_id, username, first_name],
     (err) => {
       if (err) {
