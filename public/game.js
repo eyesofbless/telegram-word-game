@@ -103,11 +103,18 @@ function setupKeyboard() {
     }
 
     document.addEventListener('keydown', handlePhysicalKeyDown);
+    document.getElementById('game-board').addEventListener('click', focusMobileInput);
+    document.getElementById('mobile-input').addEventListener('input', handleMobileInput);
     keyboardInitialized = true;
 }
 
 function handlePhysicalKeyDown(e) {
     if (gameOver || e.repeat || !isGameScreenActive()) return;
+    const isMobileInput = e.target?.id === 'mobile-input';
+
+    if (isMobileInput && /^[а-яА-ЯёЁ]$/.test(e.key)) {
+        return;
+    }
 
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -122,6 +129,30 @@ function handlePhysicalKeyDown(e) {
 
 function isGameScreenActive() {
     return document.getElementById('game-screen').classList.contains('active');
+}
+
+function focusMobileInput() {
+    if (gameOver || !isGameScreenActive()) return;
+
+    const input = document.getElementById('mobile-input');
+    input.value = '';
+
+    try {
+        input.focus({ preventScroll: true });
+    } catch (error) {
+        input.focus();
+    }
+}
+
+function handleMobileInput(e) {
+    if (gameOver || !isGameScreenActive()) {
+        e.target.value = '';
+        return;
+    }
+
+    const letters = [...e.target.value].filter(letter => /^[а-яА-ЯёЁ]$/.test(letter));
+    letters.forEach(letter => handleKeyPress(letter.toUpperCase()));
+    e.target.value = '';
 }
 
 function handleKeyPress(key) {
@@ -440,6 +471,7 @@ async function startGame() {
         startTimer();
         setupKeyboard();
         showScreen('game-screen');
+        focusMobileInput();
         return;
     }
 
@@ -461,6 +493,7 @@ async function startGame() {
         setupKeyboard();
 
         showScreen('game-screen');
+        focusMobileInput();
 
     } catch (error) {
         console.error('Error starting game:', error);
@@ -489,6 +522,7 @@ function returnToMenuFromGame() {
         pauseTimer();
     }
 
+    document.getElementById('mobile-input').blur();
     updateMenuPlayButton();
     showScreen('menu-screen');
 }

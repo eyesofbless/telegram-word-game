@@ -7,6 +7,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BOT_POLLING = process.env.BOT_POLLING !== 'false';
 
 // Middleware
 app.use(cors());
@@ -54,60 +55,68 @@ function initDatabase() {
 }
 
 // Telegram Bot
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+if (process.env.BOT_TOKEN && BOT_POLLING) {
+  const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
-bot.onText(/\/start/, (msg) => {
-  const chatId = msg.chat.id;
-  const webAppUrl = process.env.WEB_APP_URL;
-
-  bot.sendMessage(chatId, 'Добро пожаловать в игру "Угадай слово"! 🎮\n\nУгадывайте слова, соревнуйтесь с друзьями и поднимайтесь в таблице лидеров!', {
-    reply_markup: {
-      inline_keyboard: [[
-        { text: '🎮 Играть', web_app: { url: webAppUrl } }
-      ]]
-    }
+  bot.on('polling_error', (err) => {
+    console.error('Telegram polling error:', err.message);
   });
-});
 
-bot.onText(/\/stats/, async (msg) => {
-  const chatId = msg.chat.id;
-  const telegramId = msg.from.id;
+  bot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+    const webAppUrl = process.env.WEB_APP_URL;
 
-  db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId], (err, user) => {
-    if (err || !user) {
-      bot.sendMessage(chatId, 'У вас пока нет статистики. Начните играть!');
-      return;
-    }
-
-    const winRate = user.games_played > 0 ? ((user.games_won / user.games_played) * 100).toFixed(1) : 0;
-
-    bot.sendMessage(chatId,
-      `📊 Ваша статистика:\n\n` +
-      `🎮 Игр сыграно: ${user.games_played}\n` +
-      `🏆 Побед: ${user.games_won}\n` +
-      `📈 Процент побед: ${winRate}%`
-    );
-  });
-});
-
-bot.onText(/\/leaderboard/, (msg) => {
-  const chatId = msg.chat.id;
-
-  db.all('SELECT username, first_name, games_won, total_score FROM users ORDER BY total_score DESC LIMIT 10', [], (err, rows) => {
-    if (err || rows.length === 0) {
-      bot.sendMessage(chatId, 'Таблица лидеров пока пуста!');
-      return;
-    }
-
-    let message = '🏆 Топ-10 игроков:\n\n';
-    rows.forEach((row, index) => {
-      const name = row.username || row.first_name || 'Аноним';
-      message += `${index + 1}. ${name} - ${row.total_score} очков (${row.games_won} побед)\n`;
+    bot.sendMessage(chatId, 'Добро пожаловать в игру "Угадай слово"! 🎮\n\nУгадывайте слова, соревнуйтесь с друзьями и поднимайтесь в таблице лидеров!', {
+      reply_markup: {
+        inline_keyboard: [[
+          { text: '🎮 Играть', web_app: { url: webAppUrl } }
+        ]]
+      }
     });
-
-    bot.sendMessage(chatId, message);
   });
-});
+
+  bot.onText(/\/stats/, async (msg) => {
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+
+    db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId], (err, user) => {
+      if (err || !user) {
+        bot.sendMessage(chatId, 'У вас пока нет статистики. Начните играть!');
+        return;
+      }
+
+      const winRate = user.games_played > 0 ? ((user.games_won / user.games_played) * 100).toFixed(1) : 0;
+
+      bot.sendMessage(chatId,
+        `📊 Ваша статистика:\n\n` +
+        `🎮 Игр сыграно: ${user.games_played}\n` +
+        `🏆 Побед: ${user.games_won}\n` +
+        `📈 Процент побед: ${winRate}%`
+      );
+    });
+  });
+
+  bot.onText(/\/leaderboard/, (msg) => {
+    const chatId = msg.chat.id;
+
+    db.all('SELECT username, first_name, games_won, total_score FROM users ORDER BY total_score DESC LIMIT 10', [], (err, rows) => {
+      if (err || rows.length === 0) {
+        bot.sendMessage(chatId, 'Таблица лидеров пока пуста!');
+        return;
+      }
+
+      let message = '🏆 Топ-10 игроков:\n\n';
+      rows.forEach((row, index) => {
+        const name = row.username || row.first_name || 'Аноним';
+        message += `${index + 1}. ${name} - ${row.total_score} очков (${row.games_won} побед)\n`;
+      });
+
+      bot.sendMessage(chatId, message);
+    });
+  });
+} else {
+  console.log('Telegram bot polling disabled');
+}
 
 // API Routes
 app.post('/api/user/init', (req, res) => {
